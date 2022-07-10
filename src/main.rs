@@ -1,5 +1,5 @@
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader},
     net::TcpListener,
 };
 
@@ -9,10 +9,20 @@ async fn main() {
 
     let (mut socket, _addr) = listener.accept().await.unwrap();
 
-    loop {
-        let mut buffer = [0u8; 1024];
-        let read_bytes = socket.read(&mut buffer).await.unwrap();
+    let (reader, mut writer) = socket.split();
 
-        socket.write_all(&buffer[..read_bytes]).await.unwrap();
+    let mut reader = BufReader::new(reader);
+
+    let mut line = String::new();
+    loop {
+        let bytes_read = reader.read_line(&mut line).await.unwrap();
+
+        if bytes_read == 0 {
+            break;
+        }
+
+        writer.write_all(line.as_bytes()).await.unwrap();
+
+        line.clear();
     }
 }
